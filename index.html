@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8>
+<!doctype html><html lang="ko"><head><meta charset=utf8>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -6,14 +6,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-TJNW7V26');</script>
 <!-- End Google Tag Manager -->
+<title>Re.move | 한경 웹진</title>
+<meta name="description" content="Re.move는 제주 여행을 목적지가 아니라 기분에서 시작하는 웹진입니다. 지금 내 마음과 닮은 표정을 고르면, 기분에 어울리는 오늘의 제주 액티비티를 골라 드려요.">
+<link rel="canonical" href="https://lxwebzine.hankyung.com/2026-1/team2/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Re.move">
+<meta property="og:title" content="Re.move | 기분으로 고르는 제주 액티비티 웹진">
+<meta property="og:description" content="지금 내 기분을 고르면, 제주에서 다시 움직일 액티비티를 골라드려요.">
+<meta property="og:image" content="https://lxwebzine.hankyung.com/2026-1/team2/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Re.move 첫 화면. ‘기분 pick, 액티비티 find in jeju’ 문구와 기쁨·설렘·답답함·번아웃·화남 기분 버튼, ‘나 오늘 뭐하지?’ 말풍선을 띄운 캐릭터">
+<meta property="og:url" content="https://lxwebzine.hankyung.com/2026-1/team2/">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="Re.move 첫 화면. ‘기분 pick, 액티비티 find in jeju’ 문구와 기쁨·설렘·답답함·번아웃·화남 기분 버튼, ‘나 오늘 뭐하지?’ 말풍선을 띄운 캐릭터">
+<meta name="claude:viewport-fit-sides" content="cover">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"Re.move | 기분으로 고르는 제주 액티비티 웹진","description":"Re.move는 제주 여행을 목적지가 아니라 기분에서 시작하는 웹진입니다. 지금 내 마음과 닮은 표정을 고르면, 기분에 어울리는 오늘의 제주 액티비티를 골라 드려요.","datePublished":"2026-10-23","inLanguage":"ko","image":"https://lxwebzine.hankyung.com/2026-1/team2/og.jpg","author":[{"@type":"Person","name":"박세영"},{"@type":"Person","name":"송재현"},{"@type":"Person","name":"차연경"},{"@type":"Person","name":"최지아"}],"mainEntityOfPage":"https://lxwebzine.hankyung.com/2026-1/team2/"}
+</script>
 <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TJNW7V26"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
-<title>Re.move 최종본</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;900&family=DM+Mono:wght@300;400;500&family=Nanum+Gothic+Coding:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;800;900&display=swap" rel="stylesheet" media="print" data-font>
@@ -2015,8 +2032,18 @@ addEventListener('moodchange', e => {
 addEventListener('figlayout', () => { if (root.classList.contains('sheet-open')) fitFig(); });
 
 /* ---------------- about ---------------- */
+// the five moods on the project page: a line each (한국어 / English / 中文), followed by the activities that suit it
+const MOOD_LINES = {
+  기쁨: ['기쁜 날엔 그 기분이 두 배가 되는 하루로.', 'On happy days, a day that doubles the joy.', '开心的日子，就过让快乐加倍的一天。'],
+  설렘: ['설렐 땐 두근거림을 숲길과 하늘에서 이어 가는 하루로.', 'When you’re excited, a day that carries the flutter onto forest trails and into the sky.', '心动的时候，就把这份悸动带到林间小路和天空中。'],
+  답답함: ['답답할 땐 시야가 탁 트이고 속이 뻥 뚫리는 하루로.', 'When you feel stifled, a day where the view opens wide and you can breathe again.', '郁闷的时候，就去视野开阔、心里豁然开朗的地方。'],
+  번아웃: ['지쳤을 땐 서두를 일 없이 천천히 숨 고르는 하루로.', 'When you’re burned out, a slow day with nothing to rush.', '疲惫的时候，就过不必赶时间、慢慢喘口气的一天。'],
+  화남: ['화날 땐 몸을 크게 쓰며 열을 식히는 하루로.', 'When you’re angry, a day of big movement that cools the heat.', '生气的时候，就尽情活动身体，让火气慢慢消下去。'],
+};
 function renderAbout() {
   const el = $('about');
+  const moods = MOODS.map(({ ko: m }) => '<li><b>' + esc(moodLabel(m)) + '</b> — ' + esc(tr(...MOOD_LINES[m])) + '<br><span class="small">'
+    + ACTS.filter(a => a.moods.includes(m)).map(a => esc(one(a.ko))).join(' · ') + '</span></li>').join('');
   const credits = ACTS.map(a => {
     const seen = new Set(), parts = [];
     photosOf(a).forEach(({ credit: c }) => {
@@ -2026,24 +2053,27 @@ function renderAbout() {
     return parts.length ? '<li><b>' + pad2(a.n) + ' ' + esc(one(a.ko)) + '</b> — ' + parts.join(' / ') + '</li>' : '';
   }).join('');
   el.innerHTML = '<div class="d-top"><a class="d-home" href="#face">Re.move</a><span class="d-crumb"><b>' + tr('프로젝트 소개', 'About the project', '项目介绍') + '</b></span><span class="d-acts"><a class="d-close" href="#face">' + br(tr('닫기', 'Close', '关闭')) + '</a></span></div>' + tr(`<h2>Re.move — 기분 먼저, 제주는 그다음</h2>
-  <p>Re.move는 제주 여행을 목적지가 아니라 기분에서 시작하는 웹진입니다. 첫 화면에서 지금 내 마음과 닮은 기분을 고르면, 그 기분에 어울리는 오늘의 액티비티를 같은 화면에서 골라 보여 드려요.</p>
+  <p>Re.move는 제주 여행을 목적지가 아니라 기분에서 시작하는 웹진입니다. 지금 내 마음과 닮은 표정을 고르면, 기분에 어울리는 오늘의 제주 액티비티를 골라 드려요.</p>
   <p>답답한 날엔 시야가 탁 트이는 곳으로, 번아웃이 온 날엔 아무것도 하지 않아도 되는 숲으로, 화가 나는 날엔 몸을 크게 쓰는 바다로. 그렇게 고른 열 가지 하루를 모았습니다.</p>
+  <h3>기분별로 고르는 하루</h3><ul>${moods}</ul>
   <h3>만든 사람</h3><p class="small">기획·글·그림 Re.move 편집부.</p>
   <h3>관련 기사</h3>
   <p class="art"><a href="https://www.hankyung.com/article/202610191054O" target="_blank" rel="noopener">“바다보다 더 좋아”…4가지 색 ‘나만의 제주’</a><span class="small">한국경제 · 2026년 10월 19일 · Re.move 편집부가 쓴 기사</span></p>
   <h3>정보 기준</h3>
   <p>2026년 10월 기준으로 공식 안내와 운영처 정보를 확인해 정리했습니다.</p>
   <h3 class="cred-h">사진 출처</h3><ul class="cred">${credits}</ul>`, `<h2>Re.move — mood first, Jeju second</h2>
-  <p>Re.move is a webzine where your Jeju trip begins with your mood, not a destination. On the first screen, pick the mood closest to how you feel right now, and we’ll line up today’s activities to match, right there on the same screen.</p>
+  <p>Re.move is a webzine where your Jeju trip begins with your mood, not a destination. Choose the expression closest to how you feel right now, and we’ll pick out today’s Jeju activities to match your mood.</p>
   <p>On days you feel stifled, somewhere the view opens wide. On days you’re burned out, a forest where you don’t have to do a thing. On days you’re angry, the sea, where you can throw your whole body into the waves. And so, we curated ten different ways to spend a day in Jeju.</p>
+  <h3>A day for each mood</h3><ul>${moods}</ul>
   <h3>Made by</h3><p class="small">Planning, words and illustrations by the Re.move editorial team.</p>
   <h3>Related article</h3>
   <p class="art"><a href="https://www.hankyung.com/article/202610191054O" target="_blank" rel="noopener">“Better than the sea”… four shades of ‘my own Jeju’</a><span class="small">The Korea Economic Daily · October 19, 2026 · written by the Re.move editorial team (in Korean)</span></p>
   <h3>A note on the information</h3>
   <p>All details were checked against official notices and the operators’ own information as of October 2026.</p>
   <h3 class="cred-h">Photo credits</h3><ul class="cred">${credits}</ul>`, `<h2>Re.move — 先看心情，再看济州</h2>
-  <p>Re.move 是一本不从目的地、而从心情出发的济州旅行网络杂志。在首页选出最贴近你此刻感受的心情，我们就会在同一页面上为你挑选并展示与之相配的今日活动。</p>
+  <p>Re.move 是一本不从目的地、而从心情出发的济州旅行网络杂志。选出最像你此刻心情的表情，我们就会为你挑出适合这种心情的今日济州活动。</p>
   <p>郁闷的日子，去视野开阔的地方；倦怠的日子，去什么都不用做的森林；生气的日子，去能尽情活动身体的大海。就这样，我们为你精选了在济州度过一天的十种方式。</p>
+  <h3>按心情挑选的一天</h3><ul>${moods}</ul>
   <h3>制作</h3><p class="small">策划·文字·插画：Re.move 编辑部。</p>
   <h3>相关报道</h3>
   <p class="art"><a href="https://www.hankyung.com/article/202610191054O" target="_blank" rel="noopener">“比大海还要好”……四种色彩的“我的专属济州”</a><span class="small">韩国经济新闻 · 2026年10月19日 · Re.move 编辑部撰写的报道（韩文）</span></p>
