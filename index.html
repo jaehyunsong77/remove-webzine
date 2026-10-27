@@ -2548,4 +2548,29 @@ route();
 </script>
 
 
+<script>
+// GTM scroll depth: the page scrolls inside a box (#site on a detail or about page, #sheet-body in the activity sheet),
+// not the window, so GTM's own scroll-depth trigger never fires. This pushes 'scroll_depth' to the dataLayer when that box
+// is scrolled 10 / 25 / 50 / 75 / 90% of the way down, each once per page (a new address or another box starts over)
+(() => {
+  const MARKS = [10, 25, 50, 75, 90];
+  let page = null, sent = new Set(), ticking = false;
+  const measure = box => {
+    ticking = false;
+    const key = location.hash + '|' + box.id;
+    if (key !== page) { page = key; sent = new Set(); }
+    const max = box.scrollHeight - box.clientHeight; if (max <= 0) return;
+    const pct = box.scrollTop / max * 100;
+    for (const m of MARKS) if (pct >= m - 0.5 && !sent.has(m)) {
+      sent.add(m);
+      (window.dataLayer = window.dataLayer || []).push({ event: 'scroll_depth', scroll_depth_threshold: m });
+    }
+  };
+  document.addEventListener('scroll', e => {
+    const box = e.target;
+    if (ticking || !(box instanceof Element) || (box.id !== 'site' && box.id !== 'sheet-body')) return;
+    ticking = true; requestAnimationFrame(() => measure(box));
+  }, { capture: true, passive: true });
+})();
+</script>
 </body></html>
