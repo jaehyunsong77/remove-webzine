@@ -685,6 +685,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   html #site :is(#sheet, #v-about, #v-detail) .foot h2.foot-made-k{margin:0;font:inherit;color:var(--s-ink);letter-spacing:inherit;text-transform:inherit;word-break:inherit!important;overflow-wrap:inherit;text-wrap:inherit}
   /* the cards are in the page from the start; their photos wait (not laid out, so not loaded) until the sheet first comes up */
   .sheet:not(.drawn) .card img{display:none}
+  /* GTM: the map links take the click themselves (not their [ text ] spans), so the trigger reads map-kakao / map-naver */
+  .dp-place .links a.map-link > *{pointer-events:none}
 
 </style>
 <p class="sr" id="live" aria-live="polite"></p>
@@ -707,7 +709,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </ol>
       </figure>
     </div>
-    <div class="mood mood-label" id="mood" role="group" aria-label="지금 기분 고르기 - 누르면 그 기분의 액티비티가 바로 열려요" data-en-aria-label="Pick how you feel now - a tap opens that mood’s activities right away" data-zh-aria-label="选择现在的心情 - 点一下就会打开这种心情的活动"><div class="mood-row"><button type="button" data-i="1" aria-pressed="false" data-en="Happy" data-zh="开心">기쁨</button><button type="button" data-i="2" aria-pressed="false" data-en="Excited" data-zh="心动">설렘</button><button type="button" data-i="3" aria-pressed="false" data-en="Stifled" data-zh="郁闷">답답함</button><button type="button" data-i="4" aria-pressed="false" data-en="Burned out" data-zh="倦怠">번아웃</button><button type="button" data-i="5" aria-pressed="false" data-en="Angry" data-zh="生气">화남</button></div></div>
+    <div class="mood mood-label" id="mood" role="group" aria-label="지금 기분 고르기 - 누르면 그 기분의 액티비티가 바로 열려요" data-en-aria-label="Pick how you feel now - a tap opens that mood’s activities right away" data-zh-aria-label="选择现在的心情 - 点一下就会打开这种心情的活动"><div class="mood-row"><button type="button" id="mood-joy" class="mood-btn" data-mood="joy" data-i="1" aria-pressed="false" data-en="Happy" data-zh="开心">기쁨</button><button type="button" id="mood-excitement" class="mood-btn" data-mood="excitement" data-i="2" aria-pressed="false" data-en="Excited" data-zh="心动">설렘</button><button type="button" id="mood-frustration" class="mood-btn" data-mood="frustration" data-i="3" aria-pressed="false" data-en="Stifled" data-zh="郁闷">답답함</button><button type="button" id="mood-burnout" class="mood-btn" data-mood="burnout" data-i="4" aria-pressed="false" data-en="Burned out" data-zh="倦怠">번아웃</button><button type="button" id="mood-anger" class="mood-btn" data-mood="anger" data-i="5" aria-pressed="false" data-en="Angry" data-zh="生气">화남</button></div></div>
     <div class="thinks" id="thinks" aria-hidden="true"></div>
     <div class="fig" id="fig">
       <canvas id="stage" aria-hidden="true"></canvas>
@@ -2281,7 +2283,7 @@ function renderDetail(n) {
     return '<article class="dp-place" data-j="' + j + '"><p class="tag"><span>' + pad2(j + 1) + '</span>' + (p.verified === false ? '<span class="badge-chk">' + tr('확인 필요', 'Needs checking', '待确认') + '</span>' : '') + '</p>' +
       '<div><h3>' + nameHTML(p.name) + '</h3>' + (p.feature ? '<p class="ft">' + hl(p.feature) + '</p>' : '') + '</div>' +
       '<dl><dt>' + tr('위치', 'Location', '位置') + '</dt><dd>' + esc(p.areaLabel || shortArea(p.area || p.address)) + '</dd>' + (p.tel ? '<dt>' + tr('문의', 'Contact', '咨询电话') + '</dt><dd>' + esc(p.tel) + '</dd>' : '') + '</dl>' +
-      '<p class="links"><a href="' + esc(kUrl) + '" target="_blank" rel="noopener">' + br(tr('카카오맵 ↗', 'Kakao Map ↗', 'Kakao 地图 ↗')) + '</a><a href="' + esc(nUrl) + '" target="_blank" rel="noopener">' + br(tr('네이버지도 ↗', 'Naver Map ↗', 'Naver 地图 ↗')) + '</a></p></article>';
+      '<p class="links"><a class="map-link map-kakao" data-map="kakao" data-place="' + esc(placeName(p)) + '" data-activity="' + esc(SLUG[a.n] || '') + '" href="' + esc(kUrl) + '" target="_blank" rel="noopener">' + br(tr('카카오맵 ↗', 'Kakao Map ↗', 'Kakao 地图 ↗')) + '</a><a class="map-link map-naver" data-map="naver" data-place="' + esc(placeName(p)) + '" data-activity="' + esc(SLUG[a.n] || '') + '" href="' + esc(nUrl) + '" target="_blank" rel="noopener">' + br(tr('네이버지도 ↗', 'Naver Map ↗', 'Naver 地图 ↗')) + '</a></p></article>';
   }).join('');
   // an empty field shows as [brackets]
   const picks = (a.picks || []).slice(0, 5).map(p => '<figure class="dp-pick"><div class="who"><span class="av" aria-hidden="true">' + esc((editorName(p.name).replace(/^Editor\.?\s*/i, '') || '?').slice(0, 1).toUpperCase()) + '</span>' +
