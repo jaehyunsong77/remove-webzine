@@ -69,6 +69,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   @media (orientation:landscape) and (max-height:520px){ :root{ --logo:clamp(13px,4vh,22px); --tag:calc(var(--logo) * 1.5) } }
   html,body{margin:0;height:100%;overflow:hidden;background:var(--paper)}
+  /* a phone turned sideways keeps the type at the size it was set (iOS would otherwise enlarge it) */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box;-webkit-font-smoothing:antialiased;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:pinch-zoom;overscroll-behavior:none}
   .logo{position:absolute;z-index:6;top:var(--pad-top);left:var(--pad-left);margin:0;
     font-size:var(--logo);line-height:.9;color:var(--ink);user-select:none;pointer-events:none}
@@ -409,9 +411,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   #site .info:hover,#site .info[aria-expanded="true"]{transform:scale(1.1)}
   #site .info:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
   /* 한국어 / English beside the (!) button, at 0.6 of the size of the words in her thought bubble (the bubble script hands
-     that size over as --voice-fs), in the footer's sans: the language in use in ink and underlined, the other in grey */
+     that size over as --voice-fs), but never under 12px, so it still reads on a phone; in the footer's sans: the language
+     in use in ink and underlined, the other in grey */
   #site .lang{position:absolute;z-index:13;top:calc(var(--pad-top) + var(--logo) * .45);right:calc(var(--pad-right) + var(--info) + 14px);transform:translateY(-50%);
-    margin:0;display:flex;align-items:baseline;gap:.4em;font:400 calc(var(--voice-fs,15px) * .6)/1.2 var(--sans),sans-serif;letter-spacing:.01em;color:#8a8a8f;white-space:nowrap}
+    margin:0;display:flex;align-items:baseline;gap:.4em;font:400 max(12px,calc(var(--voice-fs,15px) * .6))/1.2 var(--sans),sans-serif;letter-spacing:.01em;color:#8a8a8f;white-space:nowrap}
   #site .lang button{position:relative;padding:2px 0;color:inherit}
   #site .lang button::after{content:"";position:absolute;inset:-10px -5px}   /* a finger-sized target around each word */
   #site .lang button:hover{color:var(--ink)}
@@ -468,6 +471,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   .d-crumb{justify-self:center;min-width:0;max-width:56vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-transform:none;color:var(--s-mut)}
   .d-crumb b{font-weight:400;color:var(--s-ink)}
   .d-acts{justify-self:end;display:flex;gap:18px;white-space:nowrap}
+  /* the bar's words stay small, but each takes a finger-sized tap around it */
+  #site .d-top :is(.d-home, .d-acts > a, .d-acts > button){position:relative}
+  #site .d-top :is(.d-home, .d-acts > a, .d-acts > button)::after{content:"";position:absolute;inset:-12px -7px}
   .dp{max-width:1200px;margin:0 auto;padding:0 clamp(0px,2vw,24px);word-break:keep-all}
   .dp-k{display:block;margin:0 0 10px;font-size:13px;font-weight:500;letter-spacing:.02em;color:#4a4a4a}
   .dp-h2{margin:0;font:800 clamp(24px,2.3vw,30px)/1.3 var(--sans),var(--mono);letter-spacing:-.035em;color:var(--s-ink)}
