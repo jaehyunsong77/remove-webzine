@@ -146,7 +146,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <option>기쁨</option><option>설렘</option><option>답답함</option><option>번아웃</option><option>화남</option>
       </select>
     </label>
-    <button class="spin" id="spin" type="button">SPIN TO PICK</button>
+    <button class="spin" id="roulette-spin" type="button">SPIN TO PICK</button>
     <a class="nothanks" href="index.html">괜찮아요, 그냥 둘러볼게요</a>
   </div>
 
@@ -165,7 +165,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="why" id="rwhy"></p>
     <div class="meta"><span id="rregion"></span><b id="rprice"></b></div>
     <a class="go" id="rgo" href="#">자세히 보기 →</a>
-    <div class="row2"><button type="button" id="again">다시 돌리기</button><button type="button" class="save" id="save">결과 이미지 저장</button></div>
+    <div class="row2"><button type="button" id="roulette-spin-again-card">다시 돌리기</button><button type="button" class="save" id="save">결과 이미지 저장</button></div>
   </div>
 </div>
 
@@ -244,7 +244,10 @@ layout();
 // ---------- spin
 let rot = 0, vel = reduce ? 0 : 5, mode = 'idle', target = -1, last = performance.now();
 let dec = null, autoStop = 0, lastIdx = -1, mood = '';
-const wheelEl = $('wheel'), btn = $('spin');
+const wheelEl = $('wheel'), btn = $('roulette-spin');
+// the button's id follows its label (roulette-spin → roulette-stop → roulette-spin-again) so click counts can tell them
+// apart; it changes a tick after the click, once GTM has read the id that was clicked
+function label(t, id) { setTimeout(() => { btn.textContent = t; btn.id = id; }); }
 const idxAt = r => Math.floor((((L.P - r) % 360) + 360) % 360 / SEG);
 
 function frame(t) {
@@ -282,7 +285,7 @@ function spin() {
   target = pickTarget();
   new Image().src = photoOf(ACTS[target]);           // load the result photo while it spins
   mode = 'spin'; vel = Math.max(vel, 120); autoStop = performance.now() + (reduce ? 300 : 2600);
-  btn.textContent = 'STOP!'; btn.classList.add('stop');
+  label('STOP!', 'roulette-stop'); btn.classList.add('stop');
   dl.push({ event: 'roulette_spin', mood: mood || 'none' });
 }
 function stop() {
@@ -293,13 +296,13 @@ function stop() {
   const v0 = Math.max(vel, 200);
   while (3 * d / v0 < (reduce ? 0.6 : 2.6)) d += 360;
   dec = { t0: performance.now(), r0: rot, d, T: 3 * d / v0 * 1000 };
-  mode = 'stop'; btn.textContent = '두근두근…'; btn.classList.remove('stop');
+  mode = 'stop'; label('두근두근…', 'roulette-stop'); btn.classList.remove('stop');
 }
 function land() {
   mode = 'done'; vel = 0;
   wheelEl.classList.add('done');
   wheelEl.querySelectorAll(`[data-i="${target}"]`).forEach(e => e.classList.add('win'));
-  btn.textContent = 'SPIN AGAIN';
+  label('SPIN AGAIN', 'roulette-spin-again');
   const a = ACTS[target];
   dl.push({ event: 'roulette_result', activity: a.slug, mood: mood || 'none' });
   $('live').textContent = '결과: ' + a.ko;
@@ -331,11 +334,18 @@ function openSheet(a) {
 function closeSheet(quiet) { $('sheet').classList.remove('on'); }
 $('close').onclick = () => closeSheet();
 $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
-$('again').onclick = () => { closeSheet(); spin(); };
+$('roulette-spin-again-card').onclick = () => { closeSheet(); spin(); };
 $('rgo').addEventListener('click', () => dl.push({ event: 'roulette_detail', activity: current && current.slug }));
 if (EMBED) {   // close goes back to the home screen underneath; an activity opens in the webzine itself
   document.querySelectorAll('a[href="index.html"]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); tell({ spin: 'close' }); }));
   $('rgo').addEventListener('click', e => { e.preventDefault(); if (current) tell({ spin: 'detail', slug: current.slug }); });
+  // the webzine's GTM can't see clicks inside this frame, so its click triggers get the same gtm.click it would push
+  // itself (capture phase: before the button's own handler changes its id)
+  document.addEventListener('click', e => {
+    const el = e.target.closest && e.target.closest('[id^="roulette-"]');
+    if (el) dl.push({ event: 'gtm.click', 'gtm.element': el, 'gtm.elementId': el.id, 'gtm.elementClasses': el.getAttribute('class') || '',
+      'gtm.elementUrl': el.href || '', 'gtm.elementTarget': el.target || '' });
+  }, true);
 }
 
 // ---------- story image (1080x1920), shown so it can be long-pressed and saved in the Instagram browser
@@ -393,6 +403,6 @@ $('sclose').onclick = () => $('story').classList.remove('on');
 const pick = new URLSearchParams(location.search).get('pick');
 const pi = ACTS.findIndex(a => a.slug === pick);
 if (pi >= 0) { target = pi; mode = 'done'; vel = 0; rot = L.P - (pi * SEG + SEG / 2); wheelEl.classList.add('done');
-  wheelEl.querySelectorAll(`[data-i="${pi}"]`).forEach(e => e.classList.add('win')); btn.textContent = 'SPIN AGAIN'; openSheet(ACTS[pi]); }
+  wheelEl.querySelectorAll(`[data-i="${pi}"]`).forEach(e => e.classList.add('win')); label('SPIN AGAIN', 'roulette-spin-again'); openSheet(ACTS[pi]); }
 </script>
 </body></html>
