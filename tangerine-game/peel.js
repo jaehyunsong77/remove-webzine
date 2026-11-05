@@ -1,4 +1,7 @@
-/* 감귤 껍질 한 줄 까기 v2.0 (Claude Code 버전)
+/* 감귤 껍질 한 줄 까기 v3.0 픽셀 테마 (Claude Code 버전)
+ * v3.0: 첨부 시안처럼 도트(픽셀아트) 테마. 조작·판정·점수·저장·랭킹은 v2.0과 같고 그림만 바뀜:
+ *       도트 감귤 캐릭터(칸 단위로 그림) · 구름/계단 언덕/풀 배경 · 게임판을 작은 캔버스에 그려 팔레트 색으로 맞춘 뒤 키움
+ *       · 도트 아이콘과 버튼 테두리(border-image)를 코드로 만듦.
  * v2.0: 표정을 더 앙증맞게(가운데로 모인 눈 · 큰 입 · 볼터치) + v1.5 힘 바 복구 + 끊어진 이유(힘/점선/손 뗌) 구분
  *       + 결과 버튼(메인으로 · 다시하기/다음 단계) + 제주 감귤따기 체험 상세(운영 웹진) 연결. 점수·최고점수·랭킹은 v1.9와 같음.
  * v1.9: 시작 화면 큰 감귤에 웃는 표정(테두리 없이 눈·코·입만) + 단계별 TOP 5 랭킹
@@ -33,7 +36,7 @@
   const CAUSE_TIP = { fast: '힘 바가 빨간 눈금을 넘지 않게, 조금 천천히 당겨 보세요', off: '하얀 점선 위를 그대로 따라가 보세요', lift: '끝까지 손가락을 떼지 말고 따라가 보세요' };
 
   const $ = (id) => document.getElementById(id);
-  const app = $('app'), board = $('board'), cv = $('cv'), ctx = cv.getContext('2d');
+  const app = $('app'), board = $('board'), cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
   const hud = $('hud'), guide = $('guide'), hintEl = $('hint'), pop = $('pop'), live = $('live');
   const sheetStart = $('start'), sheetOver = $('over');
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -105,6 +108,7 @@
   /* ---------- 단계별 나선 ---------- */
   let st = STAGES[0], RT = 128, SP = 30, B = 1, THMAX = 1, TOL = 18, TOTAL = 1;
   let CY = 400, WH = 760, s = 1, ox = 0, dpr = 1, Z = 1.2;
+  let P = 3, CELL = 3;   // v3.0: 게임판 한 칸 = P px(화면), CELL = 화면 좌표에서 한 칸 크기
   const FY = 0.9;   // 세로로 살짝 눌러 납작하게
   const arc = (a, b) => (B * (b * b - a * a)) / 2;
   const pt = (th) => [CX + B * th * Math.cos(th + PH), CY + B * th * Math.sin(th + PH)];
@@ -120,75 +124,196 @@
   }
   function layout() {
     const r = board.getBoundingClientRect();
-    dpr = Math.min(2, window.devicePixelRatio || 1);
-    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    // v3.0: 게임판을 P px 칸으로 작게 그리고 CSS로 키움(도트). dpr = 1/P
+    P = clamp(Math.round(r.width / 130), 2, 4);
+    dpr = 1 / P;
+    cv.width = Math.max(1, Math.floor(r.width / P)); cv.height = Math.max(1, Math.floor(r.height / P));
+    cv.style.width = `${cv.width * P}px`; cv.style.height = `${cv.height * P}px`;
     WH = clamp(r.height * (WW / r.width), 520, 900);
     s = Math.min(r.width / WW, r.height / WH);
     ox = (r.width - WW * s) / 2;
+    CELL = P / s;
     const RVy = VIEW_R * FY;
     CY = clamp(WH * 0.52, 176 / s + RVy, WH - RVy - 150 / s);
     if (layers) { layers = makeLayers(s * dpr * Z); layers.erase(0, th); }
+    sizeArt();
   }
 
-  /* ---------- 손그림 재료: 과슈 같은 거친 입자 · 불규칙한 윤곽 ---------- */
-  const seeded = (seed) => { let sd = seed; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; };
-  const grains = {};
-  // kind: 'peel'(주황 위 밝은·어두운 입자) / 'flesh'(과육 위 흰 입자) / 'leaf'
-  function grain(g, kind = 'peel') {
-    if (!grains[kind]) {
-      const c = document.createElement('canvas'); c.width = c.height = 160;
-      const q = c.getContext('2d'), rnd = seeded(kind === 'peel' ? 77 : kind === 'flesh' ? 91 : 13);
-      const n = kind === 'peel' ? 2600 : 1400;
-      for (let i = 0; i < n; i++) {
-        const x = rnd() * 160, y = rnd() * 160, r = 0.35 + rnd() * (rnd() < 0.08 ? 1.6 : 0.9), lite = rnd() < 0.58;
-        q.fillStyle = kind === 'peel' ? (lite ? `rgba(255,198,120,${0.16 + rnd() * 0.3})` : `rgba(196,80,0,${0.08 + rnd() * 0.18})`)
-          : kind === 'flesh' ? (lite ? `rgba(255,252,240,${0.2 + rnd() * 0.35})` : `rgba(230,140,50,${0.06 + rnd() * 0.12})`)
-            : (lite ? `rgba(200,235,170,${0.15 + rnd() * 0.25})` : `rgba(40,90,30,${0.08 + rnd() * 0.15})`);
-        q.beginPath(); q.ellipse(x, y, r, r * (0.6 + rnd() * 0.4), rnd() * 3, 0, TAU); q.fill();
+  /* ---------- 도트(픽셀아트) 재료 ----------
+   * v3.0: 첨부 시안처럼 모든 그림을 도트로. 캔버스를 '칸' 단위로 작게 그리고 CSS image-rendering:pixelated로 키움.
+   *  - 캐릭터·배경(시작 화면, 얼굴, 결과 그림): 칸마다 직접 칠함(cells) → 또렷한 1칸 외곽선
+   *  - 게임판(나선·껍질 띠): 기존 벡터 그림을 작은 캔버스에 그린 뒤 quantize로 팔레트 색에 맞춤 */
+  const C = {
+    ink: '#4a2812', od: '#e2701c', o: '#f7922c', ol: '#ffad48', oh: '#ffd27e', shine: '#fff4dc',
+    cream: '#fff1d2', pith: '#fff6e4', fl: '#ffc565', fl2: '#ffb24d', fll: '#ffe2a6', fld: '#ef9a3c',
+    leaf: '#6fb34c', leafM: '#89c95d', leafD: '#428a37', red: '#d9452b', redD: '#a8301c', yel: '#ffe27a', white: '#ffffff',
+    pink: '#f6a39b', ground: '#d6ebbd', grass: '#9fd27e', grassD: '#6fb553', tan: '#efd7b0',
+    hill: '#fde0b0', hillL: '#feedd2', cloud: '#d8eaed', cloudL: '#eef6f5',
+  };
+  const PAL = Object.values(C).map((h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; });
+  const qCache = new Map();
+  // 반 넘게 칠해진 칸만 남기고(반투명 가장자리 없앰) 모든 칸을 가장 가까운 팔레트 색으로 → 또렷한 도트
+  function quantize(g) {
+    const w = g.canvas.width, h = g.canvas.height;
+    if (!w || !h) return;
+    const im = g.getImageData(0, 0, w, h), d = im.data;
+    if (qCache.size > 40000) qCache.clear();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) { d[i + 3] = 0; continue; }
+      d[i + 3] = 255;
+      const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      let c = qCache.get(key);
+      if (!c) {
+        let bd = Infinity;
+        for (const p of PAL) { const dr = d[i] - p[0], dg = d[i + 1] - p[1], db = d[i + 2] - p[2], dd = 2 * dr * dr + 4 * dg * dg + 3 * db * db; if (dd < bd) { bd = dd; c = p; } }
+        qCache.set(key, c);
       }
-      grains[kind] = c;
+      d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
     }
-    return g.createPattern(grains[kind], 'repeat');
+    g.putImageData(im, 0, 0);
   }
-  // 손으로 그린 듯한 타원(울퉁불퉁 + 가장자리가 살짝 거침)
-  function wobble(g, x, y, rx, ry, seed = 1) {
-    g.beginPath();
-    for (let i = 0; i <= 120; i++) {
-      const a = (i / 120) * TAU;
-      const k = 1 + 0.022 * Math.sin(3 * a + seed) + 0.012 * Math.sin(5 * a + seed * 2.3) + 0.004 * Math.sin(17 * a + seed) + 0.003 * Math.sin(41 * a + seed * 3);
-      i ? g.lineTo(x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k) : g.moveTo(x + rx * k, y);
+  // 칸 단위 모양: inside(칸 가운데)가 참인 칸을 칠하고, 상하좌우 이웃 중 바깥이 있으면 외곽선 색(line=null이면 외곽선 없음)
+  function cells(g, x0, y0, x1, y1, inside, color, line = C.ink) {
+    for (let y = Math.floor(y0); y < Math.ceil(y1); y++) {
+      for (let x = Math.floor(x0); x < Math.ceil(x1); x++) {
+        const px = x + 0.5, py = y + 0.5;
+        if (!inside(px, py)) continue;
+        const edge = line && (!inside(px - 1, py) || !inside(px + 1, py) || !inside(px, py - 1) || !inside(px, py + 1));
+        const c = edge ? line : color(px, py);
+        if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
+      }
     }
-    g.closePath();
   }
-  // 감귤 껍질 칠하기(시작 화면 · 결과 · 게임판 공통): 선명한 주황 + 아래·오른쪽 부드러운 그늘 + 왼쪽 위 밝은 기운 + 거친 입자
-  function paintOrange(g, shape, x, y, rx, ry) {
-    shape(); g.fillStyle = '#f5871f'; g.fill();
-    g.save(); shape(); g.clip();
-    const sh = g.createRadialGradient(x - rx * 0.25, y - ry * 0.3, Math.min(rx, ry) * 0.3, x, y, Math.max(rx, ry) * 1.08);
-    sh.addColorStop(0, 'rgba(255,170,80,.42)'); sh.addColorStop(0.55, 'rgba(245,135,31,0)'); sh.addColorStop(1, 'rgba(200,82,0,.42)');
-    g.fillStyle = sh; g.fillRect(x - rx * 1.2, y - ry * 1.2, rx * 2.4, ry * 2.4);
-    g.fillStyle = grain(g, 'peel'); g.fillRect(x - rx * 1.2, y - ry * 1.2, rx * 2.4, ry * 2.4);
-    g.restore();
-    shape(); g.strokeStyle = 'rgba(214,98,14,.55)'; g.lineWidth = Math.max(1, rx * 0.012); g.stroke();
+  // 글자 지도 찍기(한 글자 = 한 칸, '.'은 비움). k = 칸 크기
+  function stamp(g, map, pal, x, y, k = 1) {
+    map.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = pal[row[i]]; if (c) { g.fillStyle = c; g.fillRect(x + i * k, y + j * k, k, k); } } });
   }
+  const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const seeded = (seed) => { let sd = seed; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; };
+  const TUFT = ['g.g.g', 'G.G.G', '.GGG.'];
+  const TUFT_PAL = { g: C.grass, G: C.grassD };
+  const SPARK = ['..a..', '..a..', 'aabaa', '..a..', '..a..'];
+
+  // 잎(칸): 꼭지 끝에서 오른쪽 위로. 위쪽 절반은 밝은 초록, 가운데 잎맥
+  function pxLeaf(g, bx, by, L, Wd, ang) {
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const loc = (x, y) => { const dx = x - bx, dy = y - by; return [dx * ca + dy * sa, -dx * sa + dy * ca]; };
+    const inside = (x, y) => { const [u, v] = loc(x, y); return u >= 0 && u <= L && Math.abs(v) <= (Wd / 2) * Math.pow(Math.sin((Math.PI * u) / L), 0.7); };
+    cells(g, bx - Wd, by - L - Wd, bx + L + Wd, by + Wd, inside, (x, y) => {
+      const [u, v] = loc(x, y);
+      return Math.abs(v) < 0.55 && u > L * 0.18 && u < L * 0.82 ? C.leafD : v < 0 ? C.leafM : C.leaf;
+    });
+  }
+  // 표정(칸 그림): 큰 감귤(시작 화면)과 작은 감귤(얼굴 아이콘) 두 벌. 가운데 선을 기준으로 좌우 대칭
+  function pxFace(g, cx, cy, rx, ry, mood, blink) {
+    const X = Math.round(cx), Y = Math.round(cy + (rx >= 15 ? 0 : ry * 0.12)), K = C.ink;
+    const put = (dx, dy, c) => { g.fillStyle = c; g.fillRect(X + dx, Y + dy, 1, 1); g.fillRect(X - 1 - dx, Y + dy, 1, 1); };
+    const run = (a, b, dy, c) => { for (let x = a; x <= b; x++) put(x, dy, c); };
+    if (rx >= 15) {
+      run(-13, -11, 2, C.pink); run(-14, -10, 3, C.pink); run(-13, -11, 4, C.pink);
+      if (mood === 'happy') { run(-8, -7, -2, K); put(-9, -1, K); put(-6, -1, K); }
+      else if (blink) run(-8, -7, 0, K);
+      else for (let y = mood === 'sad' ? -3 : -4; y <= 0; y++) run(-8, -7, y, K);
+      if (mood === 'sad') { put(-5, 3, K); run(-4, -1, 2, K); }
+      else if (mood === 'happy') { run(-5, -1, 2, K); put(-5, 3, K); run(-4, -1, 3, C.pink); run(-4, -1, 4, K); }
+      else { put(-5, 2, K); run(-4, -1, 3, K); }
+    } else {
+      run(-5, -4, 1, C.pink);
+      if (mood === 'happy') { put(-4, -1, K); put(-2, -1, K); put(-3, -2, K); }
+      else if (blink) put(-3, 0, K);
+      else { put(-3, -1, K); put(-3, 0, K); }
+      if (mood === 'sad') { put(-1, 1, K); put(-2, 2, K); }
+      else if (mood === 'happy') { run(-2, -1, 1, K); put(-1, 2, K); }
+      else { put(-2, 1, K); put(-1, 2, K); }
+    }
+  }
+  // 도트 감귤(시안 캐릭터): 갈색 1칸 외곽선 · 오른쪽 아래 진한 주황 · 왼쪽 위 밝은 주황과 흰 반짝임 · 꼭지 · 잎 · 표정
+  // o.cut: 위쪽부터 이만큼(-1~1) 깐 모습(결과 화면 '끊어졌어요')
+  function pxTangerine(g, cx, cy, rx, ry, o = {}) {
+    const big = rx >= 15;
+    const inE = (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+    cells(g, cx - rx - 1, cy - ry - 1, cx + rx + 1, cy + ry + 1, inE, (x, y) => {
+      const nx = (x - cx) / rx, ny = (y - cy) / ry;
+      if (o.cut != null && ny < o.cut) return ny > o.cut - 0.09 ? C.pith : hash(x | 0, y | 0) < 0.1 ? C.fll : C.fl;
+      const u = (nx + 0.5) * 0.8 + (ny + 0.5) * 0.6, v = -(nx + 0.5) * 0.6 + (ny + 0.5) * 0.8;
+      if ((u / 0.2) ** 2 + (v / (big ? 0.085 : 0.14)) ** 2 <= 1) return C.shine;
+      if ((nx + 0.16) ** 2 + (ny + 0.2) ** 2 > 1.02) return C.od;
+      if ((nx + 0.42) ** 2 + (ny + 0.44) ** 2 < 0.17) return C.ol;
+      if (big && hash(x | 0, y | 0) < 0.03) return C.od;
+      return C.o;
+    });
+    const top = Math.round(cy - ry), X = Math.round(cx);
+    const sh = big ? 6 : Math.max(2, Math.round(ry * 0.32)), sw = big ? 2 : 1;
+    if (o.stem !== false) { g.fillStyle = C.ink; g.fillRect(X - (big ? 1 : 0), top - sh + 1, sw, sh); }
+    if (o.leaf !== false) pxLeaf(g, X + (big ? 1 : 1), top - sh + (big ? 2 : 1), rx * 0.84, Math.max(3, rx * 0.4), -0.45);
+    if (o.face) pxFace(g, cx, cy, rx, ry, o.face, o.blink);
+  }
+  // 다 깐 감귤(칸): 세로로 휜 조각 줄 · 조각 사이 골 · 흰 결 · 꼭지 자리
+  function pxPeeled(g, cx, cy, rx, ry) {
+    const inE = (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+    cells(g, cx - rx - 1, cy - ry - 1, cx + rx + 1, cy + ry + 1, inE, (x, y) => {
+      const nx = (x - cx) / rx, ny = (y - cy) / ry;
+      const q = (Math.asin(clamp(nx / Math.sqrt(Math.max(0.04, 1 - ny * ny)), -1, 1)) / Math.PI + 0.5) * 7, f = q - Math.floor(q);
+      if (((nx + 0.45) / 0.16) ** 2 + ((ny + 0.5) / 0.08) ** 2 < 1) return C.white;
+      if (f < 0.16 && q > 0.4 && q < 6.6) return C.fld;
+      if ((nx + 0.12) ** 2 + (ny + 0.14) ** 2 > 0.98) return C.fl2;
+      if (Math.abs(f - 0.55) < 0.12 && Math.abs(ny) < 0.55 && hash(x | 0, y | 0) < 0.55) return C.fll;
+      return C.fl;
+    });
+    const top = Math.round(cy - ry), X = Math.round(cx);
+    g.fillStyle = C.pith; g.fillRect(X - 2, top + 1, 4, 1);
+    g.fillStyle = C.ink; g.fillRect(X - 1, top - 2, 2, 3);
+  }
+  // 반달 감귤 조각(시작 화면): 둥근 쪽은 껍질, 자른 면에 흰 속껍질, 속살에 방사형 흰 줄
+  function pxSegment(g, sx, sy, R, ang) {
+    const ca = Math.cos(ang), sa = Math.sin(ang), R2 = R * 0.8;
+    const loc = (x, y) => { const dx = x - sx, dy = y - sy; return [dx * ca + dy * sa, -dx * sa + dy * ca]; };
+    const inside = (x, y) => { const [u, v] = loc(x, y); return v <= 0.9 && (u / R) ** 2 + (v / R2) ** 2 <= 1; };
+    cells(g, sx - R - 2, sy - R - 2, sx + R + 2, sy + R + 2, inside, (x, y) => {
+      const [u, v] = loc(x, y), nr = Math.hypot(u / R, v / R2);
+      if (v > -0.5) return C.pith;
+      if (nr > 0.78) return C.o;
+      if (nr > 0.66) return C.pith;
+      const a = (Math.atan2(-v, u) / Math.PI) * 5;
+      return Math.abs(a - Math.round(a)) < 0.14 && nr > 0.18 ? C.fll : C.fl;
+    });
+  }
+  function pxCloud(g, x, y, w) {
+    const k = w / 22, cs = [[4.5, 6, 4.2], [10.5, 3.6, 5.6], [16.5, 5.6, 4.6]], base = y + 9 * k;
+    const inside = (px, py) => py <= base && (cs.some(([a, b, r]) => (px - x - a * k) ** 2 + (py - y - b * k) ** 2 <= (r * k) ** 2) || (py >= y + 6 * k && px >= x + 2 * k && px <= x + 20 * k));
+    cells(g, x - 2, y - 3, x + w + 2, base + 1, inside, (px, py) => (py < y + 4.6 * k ? C.cloudL : C.cloud), null);
+  }
+  // 계단 모양 언덕(3칸씩 오르내림) + 계단 윗면 밝게
+  function pxHill(g, px, base, hgt, hw, col, top) {
+    for (let x = Math.floor(px - hw); x <= Math.ceil(px + hw); x++) {
+      const t = 1 - Math.abs(x + 0.5 - px) / hw;
+      if (t <= 0) continue;
+      const hh = Math.floor((Math.min(1, t * 1.3) * hgt) / 3) * 3;
+      if (hh <= 0) continue;
+      g.fillStyle = col; g.fillRect(x, base - hh, 1, hh);
+      g.fillStyle = top; g.fillRect(x, base - hh, 1, 1);
+    }
+  }
+  function pxSparks(g, cx, cy, rx, ry, angs, len, col) {
+    g.fillStyle = col;
+    for (const a of angs) for (let i = 0; i < len; i++) g.fillRect(Math.round(cx + Math.cos(a) * (rx * 1.2 + i)), Math.round(cy + Math.sin(a) * (ry * 1.24 + i)), 2, 2);
+  }
+
+  /* ---------- 게임판 그림(벡터 → 작은 캔버스 → quantize) ---------- */
+  // CELL: 화면 좌표에서 한 칸의 크기(= 칸 크기 P ÷ 배율 s). 귤 좌표(Z배 확대 안쪽)에서는 CELL / Z
+  function stem(g, x, y, h) { g.fillStyle = C.ink; g.fillRect(x - CELL, y - h, CELL * 2, h); }
   function leaf(g, x, y, len, ang) {
     g.save(); g.translate(x, y); g.rotate(ang);
-    const shape = () => { g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.25, -len * 0.42, len * 0.72, -len * 0.42, len, -len * 0.08); g.bezierCurveTo(len * 0.7, len * 0.22, len * 0.3, len * 0.2, 0, 0); g.closePath(); };
-    shape(); g.fillStyle = '#6aa84f'; g.fill();
-    g.save(); shape(); g.clip();
-    g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.3, len * 0.18, len * 0.7, len * 0.2, len, -len * 0.08); g.lineTo(len, len); g.lineTo(0, len); g.closePath(); g.fillStyle = 'rgba(60,120,40,.35)'; g.fill();
-    g.fillStyle = grain(g, 'leaf'); g.fillRect(0, -len, len, len * 2);
-    g.restore();
-    g.beginPath(); g.moveTo(len * 0.04, -len * 0.01); g.quadraticCurveTo(len * 0.5, -len * 0.12, len * 0.92, -len * 0.08); g.strokeStyle = 'rgba(210,240,180,.6)'; g.lineWidth = Math.max(1, len * 0.025); g.lineCap = 'round'; g.stroke();
+    const shape = () => { g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.25, -len * 0.42, len * 0.72, -len * 0.42, len, -len * 0.04); g.bezierCurveTo(len * 0.7, len * 0.3, len * 0.28, len * 0.28, 0, 0); g.closePath(); };
+    shape(); g.strokeStyle = C.ink; g.lineWidth = CELL * 2.2; g.lineJoin = 'round'; g.stroke();
+    shape(); g.fillStyle = C.leaf; g.fill();
+    g.save(); shape(); g.clip(); g.fillStyle = C.leafM; g.fillRect(0, -len, len, len * 0.97); g.restore();
+    g.beginPath(); g.moveTo(len * 0.12, -len * 0.01); g.lineTo(len * 0.84, -len * 0.04); g.strokeStyle = C.leafD; g.lineWidth = CELL; g.lineCap = 'butt'; g.stroke();
     g.restore();
   }
-  function stem(g, x, y, h) {
-    g.beginPath(); g.moveTo(x, y); g.lineTo(x - h * 0.06, y - h);
-    g.strokeStyle = '#6e4a2e'; g.lineWidth = Math.max(3, h * 0.22); g.lineCap = 'round'; g.stroke();
-  }
-  // 시안의 '반짝 표시' 세 줄
-  function accents(g, x, y, r, a0, color = '#f5871f', w = 3, len = r * 0.14) {
-    g.save(); g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round';
+  // 반짝 표시 세 줄(도트: 끝이 네모난 굵은 선)
+  function accents(g, x, y, r, a0, color = C.o, w = CELL * 2, len = r * 0.14) {
+    g.save(); g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'butt';
     const spread = Math.min(0.36, (len * 1.3) / r);
     for (let i = 0; i < 3; i++) {
       const a = a0 + (i - 1) * spread, r1 = r, r2 = r + len * (i === 1 ? 1 : 0.72);
@@ -196,52 +321,60 @@
     }
     g.restore();
   }
+  // 귤 아래 연둣빛 땅 + 풀 두 포기(시작 화면 배경과 같은 느낌)
   function groundShadow(g, x, y, rx, ry) {
-    g.save(); g.translate(x, y); g.scale(1, ry / rx);
-    const gr = g.createRadialGradient(0, 0, rx * 0.2, 0, 0, rx);
-    gr.addColorStop(0, 'rgba(232,206,170,.75)'); gr.addColorStop(0.7, 'rgba(236,214,182,.5)'); gr.addColorStop(1, 'rgba(240,222,196,0)');
-    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx, 0, TAU); g.fill();
-    g.restore();
+    g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fillStyle = C.ground; g.fill();
+    stamp(g, TUFT, TUFT_PAL, x - rx * 0.92, y - ry - CELL * 2, CELL);
+    stamp(g, TUFT, TUFT_PAL, x + rx * 0.8, y - ry * 0.4 - CELL * 2, CELL);
   }
 
   const deco = (() => {
     const rnd = seeded(5);
-    const veins = [], vesicles = [], cuts = [], blots = [];
+    const vesicles = [], cuts = [];
     let acc = rnd() * TAU; const n = 11;
     for (let i = 0; i < n; i++) { cuts.push(acc); acc += (TAU / n) * (0.82 + rnd() * 0.36); }
     const sc = TAU / (acc - cuts[0]); for (let i = 0; i < n; i++) cuts[i] = cuts[0] + (cuts[i] - cuts[0]) * sc;
-    for (let i = 0; i < 300; i++) { const a = rnd() * TAU, r = 0.12 + Math.sqrt(rnd()) * 0.86; vesicles.push([a, r, 1.2 + rnd() * 1.8, rnd()]); }
-    for (let i = 0; i < 26; i++) veins.push({ a0: rnd() * TAU, bend: (rnd() - 0.5) * 1.1, len: 0.35 + rnd() * 0.6, w: 0.8 + rnd() * 1.6, r0: 0.04 + rnd() * 0.35 });
-    for (let i = 0; i < 18; i++) blots.push([rnd() * TAU, 0.15 + rnd() * 0.8, 3 + rnd() * 7, rnd() * 3]);
-    return { veins, vesicles, cuts, blots };
+    for (let i = 0; i < 160; i++) { const a = rnd() * TAU, r = 0.14 + Math.sqrt(rnd()) * 0.8; vesicles.push([a, r]); }
+    return { vesicles, cuts };
   })();
 
-  // 껍질 바깥선: 원보다 살짝 크고 울퉁불퉁 + 가장자리 거침(나선 끝보다 항상 바깥이라 판정에 영향 없음)
-  const peelR = (a) => RT * (1.03 + 0.01 * Math.sin(3 * a + 0.7) + 0.006 * Math.sin(5 * a + 2.1) + 0.003 * Math.sin(13 * a + 1) + 0.002 * Math.sin(37 * a) + 0.0015 * Math.sin(61 * a + 1));
+  // 껍질 바깥선: 원보다 살짝 크고 울퉁불퉁(나선 끝보다 항상 바깥이라 판정에 영향 없음)
+  const peelR = (a) => RT * (1.03 + 0.01 * Math.sin(3 * a + 0.7) + 0.006 * Math.sin(5 * a + 2.1));
   const fleshR = (a) => RT + 2.5 + RT * (0.006 + 0.006 * Math.sin(3 * a + 0.7) + 0.004 * Math.sin(7 * a + 1.3));
   function blob(g, rf) {
     g.beginPath();
     for (let i = 0; i <= 160; i++) { const a = (i / 160) * TAU, r = rf(a), x = CX + Math.cos(a) * r, y = CY + Math.sin(a) * r; i ? g.lineTo(x, y) : g.moveTo(x, y); }
     g.closePath();
   }
-
-  const paintPeel = (g) => paintOrange(g, () => blob(g, peelR), CX, CY, RT * 1.03, RT * 1.03);
-  // 흰 속껍질: 크림색 + 가는 섬유
-  function paintPith(g) {
-    blob(g, fleshR); g.fillStyle = '#fff5e4'; g.fill();
-    g.save(); g.clip();
-    const rnd = seeded(11);
-    g.lineCap = 'round';
-    for (let i = 0; i < 240; i++) {
-      const a = rnd() * TAU, r = Math.sqrt(rnd()) * RT, x = CX + Math.cos(a) * r, y = CY + Math.sin(a) * r, d = rnd() * TAU, l = 3 + rnd() * 6;
-      g.strokeStyle = rnd() < 0.5 ? 'rgba(238,214,176,.7)' : 'rgba(255,255,255,.85)'; g.lineWidth = 0.8;
-      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(d + 0.6) * l * 0.6, y + Math.sin(d + 0.6) * l * 0.6, x + Math.cos(d) * l, y + Math.sin(d) * l); g.stroke();
+  // 겉껍질(귤 좌표): 진한 주황 테두리 쪽 그늘 · 왼쪽 위 밝은 주황 · 흰 반짝임 · 껍질 구멍 도트
+  function paintPeel(g) {
+    const R = RT * 1.03, u = CELL / Z;
+    blob(g, peelR); g.fillStyle = C.od; g.fill();
+    g.save(); blob(g, peelR); g.clip();
+    g.beginPath(); g.ellipse(CX - R * 0.1, CY - R * 0.12, R * 0.95, R * 0.95, 0, 0, TAU); g.fillStyle = C.o; g.fill();
+    g.beginPath(); g.ellipse(CX - R * 0.4, CY - R * 0.42, R * 0.4, R * 0.33, -0.75, 0, TAU); g.fillStyle = C.ol; g.fill();
+    g.beginPath(); g.ellipse(CX - R * 0.5, CY - R * 0.55, R * 0.17, R * 0.075, -0.75, 0, TAU); g.fillStyle = C.shine; g.fill();
+    const rnd = seeded(23); g.fillStyle = C.od;
+    for (let i = 0; i < 120; i++) {
+      const a = rnd() * TAU, r = Math.sqrt(rnd()) * R * 0.88, x = CX + Math.cos(a) * r, y = CY + Math.sin(a) * r;
+      if (Math.hypot(x - (CX - R * 0.42), y - (CY - R * 0.44)) < R * 0.42) continue;
+      g.fillRect(x, y, u, u);
     }
     g.restore();
   }
-  // 깐 속살(시안 3번 화면): 밝은 살구색 과육 조각 + 흰 경계 + 흰 귤락이 얼룩처럼 많이
+  // 흰 속껍질: 크림색 + 섬유 도트
+  function paintPith(g) {
+    const u = CELL / Z;
+    blob(g, fleshR); g.fillStyle = C.pith; g.fill();
+    g.save(); g.clip();
+    const rnd = seeded(11); g.fillStyle = C.cream;
+    for (let i = 0; i < 90; i++) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * RT; g.fillRect(CX + Math.cos(a) * r, CY + Math.sin(a) * r, u * 2, u); }
+    g.restore();
+  }
+  // 깐 속살: 소용돌이 조각(두 가지 살구색) + 흰 경계 줄 + 알갱이 도트 + 오른쪽 아래 그늘
   function paintFlesh(g) {
-    blob(g, fleshR); g.fillStyle = '#ffd7a0'; g.fill();
+    const u = CELL / Z;
+    blob(g, fleshR); g.fillStyle = C.fl; g.fill();
     g.save(); blob(g, fleshR); g.clip();
     const cuts = deco.cuts, n = cuts.length, R = RT * 1.1, SWIRL = 0.3;
     const edge = (a) => [CX + Math.cos(a + SWIRL) * R * 0.5, CY + Math.sin(a + SWIRL) * R * 0.5, CX + Math.cos(a) * R, CY + Math.sin(a) * R];
@@ -249,56 +382,37 @@
       const a = cuts[i], b = i + 1 < n ? cuts[i + 1] : cuts[0] + TAU;
       const [c1x, c1y, e1x, e1y] = edge(a), [c2x, c2y] = edge(b);
       g.beginPath(); g.moveTo(CX, CY); g.quadraticCurveTo(c1x, c1y, e1x, e1y); g.arc(CX, CY, R, a, b); g.quadraticCurveTo(c2x, c2y, CX, CY); g.closePath();
-      g.fillStyle = i % 2 ? '#ffd296' : '#ffdcab'; g.fill();
-      g.save(); g.clip();
-      g.lineCap = 'round';
-      for (const [va, vr, vl, vk] of deco.vesicles) {
-        const aa = a + ((va / TAU) % 1) * (b - a) + SWIRL * (1 - vr) * 0.6;
-        const x = CX + Math.cos(aa) * vr * RT, y = CY + Math.sin(aa) * vr * RT;
-        g.strokeStyle = vk < 0.6 ? 'rgba(255,248,232,.7)' : 'rgba(240,160,70,.35)'; g.lineWidth = 1.4;
-        g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(aa) * vl * 1.7, y + Math.sin(aa) * vl * 1.7); g.stroke();
-      }
-      g.restore();
+      g.fillStyle = i % 2 ? C.fl2 : C.fl; g.fill();
     }
-    // 흰 귤락 얼룩
-    for (const [a, r, sz, sd] of deco.blots) {
-      const x = CX + Math.cos(a) * r * RT, y = CY + Math.sin(a) * r * RT;
-      g.beginPath();
-      for (let j = 0; j <= 10; j++) { const b = (j / 10) * TAU, rr = sz * (0.7 + 0.3 * Math.sin(b * 3 + sd)); j ? g.lineTo(x + Math.cos(b) * rr, y + Math.sin(b) * rr * 0.7) : g.moveTo(x + rr, y); }
-      g.closePath(); g.fillStyle = 'rgba(255,250,238,.6)'; g.fill();
-    }
-    g.strokeStyle = '#fffaf0'; g.lineWidth = 2.6; g.lineCap = 'round';
+    g.fillStyle = C.fll;
+    for (const [a, r] of deco.vesicles) g.fillRect(CX + Math.cos(a) * r * RT, CY + Math.sin(a) * r * RT, u, u);
+    g.strokeStyle = C.pith; g.lineWidth = u * 1.3; g.lineCap = 'butt';
     for (const a of cuts) { const [cx, cy, ex, ey] = edge(a); g.beginPath(); g.moveTo(CX, CY); g.quadraticCurveTo(cx, cy, ex, ey); g.stroke(); }
-    g.strokeStyle = 'rgba(255,252,244,.9)';
-    for (const v of deco.veins) {
-      const a1 = v.a0 + v.bend;
-      const p0 = [CX + Math.cos(v.a0) * v.r0 * RT, CY + Math.sin(v.a0) * v.r0 * RT];
-      const pc = [CX + Math.cos(v.a0 + v.bend * 0.3) * (v.r0 + v.len * 0.55) * RT, CY + Math.sin(v.a0 + v.bend * 0.3) * (v.r0 + v.len * 0.55) * RT];
-      const p2 = [CX + Math.cos(a1) * (v.r0 + v.len) * RT, CY + Math.sin(a1) * (v.r0 + v.len) * RT];
-      g.lineWidth = v.w;
-      g.beginPath(); g.moveTo(p0[0], p0[1]); g.quadraticCurveTo(pc[0], pc[1], p2[0], p2[1]); g.stroke();
-    }
-    const sh = g.createRadialGradient(CX - RT * 0.2, CY - RT * 0.25, RT * 0.45, CX, CY, RT * 1.05);
-    sh.addColorStop(0, 'rgba(240,150,60,0)'); sh.addColorStop(1, 'rgba(240,140,50,.3)');
-    g.fillStyle = sh; g.fillRect(CX - R, CY - R, R * 2, R * 2);
-    g.fillStyle = grain(g, 'flesh'); g.fillRect(CX - R, CY - R, R * 2, R * 2);
+    g.beginPath(); g.arc(CX, CY, RT * 0.08, 0, TAU); g.fillStyle = C.pith; g.fill();
+    g.beginPath(); g.arc(CX, CY, RT * 1.01, -0.35, 2.05); g.strokeStyle = C.fld; g.lineWidth = u * 3; g.stroke();
     g.restore();
   }
 
-  // 과육 · 흰 속껍질 · 겉껍질 세 층을 미리 그려 두고, 깐 만큼 지움(깐 자리가 바뀔 때만 다시 합침 → 휴대폰에서도 가볍게)
+  // 과육 · 흰 속껍질 · 겉껍질 세 층을 미리 그려 두고, 깐 만큼 지움(깐 자리가 바뀔 때만 다시 합침)
+  // 합칠 때 층마다 상하좌우 1칸씩 단단한 그림자를 깔아 도트 외곽선을 만듦(껍질 띠 가장자리도 갈색 테두리)
+  function outlined(g, img, col) {
+    g.save(); g.shadowColor = col; g.shadowBlur = 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { g.shadowOffsetX = dx; g.shadowOffsetY = dy; g.drawImage(img, 0, 0); }
+    g.restore();
+    g.drawImage(img, 0, 0);
+  }
   function makeLayers(k) {
     const box = RT * 1.07 + 8, size = Math.ceil(box * 2 * k);
     const mk = () => { const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); g.setTransform(k, 0, 0, k, -(CX - box) * k, -(CY - box) * k); return [c, g]; };
-    const [fc, fg] = mk(), [pc, pg] = mk(), [wc, wg] = mk(), [cc, cg] = mk();
+    const [fc, fg] = mk(), [pc, pg] = mk(), [wc, wg] = mk(), [cc, cg] = mk(), [oc, og] = mk();
     paintFlesh(fg); paintPith(wg); paintPeel(pg);
+    og.setTransform(1, 0, 0, 1, 0, 0); outlined(og, fc, C.ink);
     let dirty = true;
     const compose = () => {
       cg.save(); cg.setTransform(1, 0, 0, 1, 0, 0); cg.clearRect(0, 0, size, size);
-      cg.drawImage(fc, 0, 0);
-      cg.shadowColor = 'rgba(200,100,20,.28)'; cg.shadowBlur = 2 * k; cg.shadowOffsetY = 1.4 * k;
-      cg.drawImage(wc, 0, 0);
-      cg.shadowColor = 'rgba(180,70,10,.25)'; cg.shadowBlur = 2 * k; cg.shadowOffsetY = 1.2 * k;
-      cg.drawImage(pc, 0, 0);
+      cg.drawImage(oc, 0, 0);
+      outlined(cg, wc, C.fld);
+      outlined(cg, pc, C.ink);
       cg.restore();
       dirty = false;
     };
@@ -307,10 +421,10 @@
       g.lineWidth = w; g.lineCap = 'butt'; g.lineJoin = 'round';
       g.beginPath(); path(g, Math.max(0, a - 0.03), b, 0.03, off); g.stroke(); g.restore();
     };
-    // 시안 3번처럼 벗긴 자리가 '나선 띠'로 보이게: 띠 간격보다 좁게(PEEL_W) 지워 바퀴 사이에 주황 껍질이 남고,
-    // 속껍질은 조금 덜 지워 띠 양쪽 가장자리에 흰 테두리가 보임. 다 까면 남은 껍질은 사라지며 과육 전체가 드러남
+    // 벗긴 자리가 '나선 띠'로 보이게: 띠 간격보다 좁게(PEEL_W) 지워 바퀴 사이에 주황 껍질이 남고,
+    // 속껍질은 조금 덜 지워 띠 양쪽 가장자리에 흰 테두리가 보임
     return {
-      flesh: fc, peel: pc, pith: wc, box,
+      flesh: oc, peel: pc, pith: wc, box,
       whole() { if (dirty) compose(); return cc; },
       erase(a, b) { if (b <= a) return; erase(pg, a, b, SP * PEEL_W, 0); erase(wg, a, b, SP * PEEL_W - 7, 0); dirty = true; },
     };
@@ -322,9 +436,9 @@
     p = q(b); g.lineTo(p[0], p[1]);
   }
 
-  // 껍질 띠: 폭이 넓고, 점마다 비틀림(ph)이 있어 앞면(주황)·안쪽 면(크림)이 번갈아 보임.
-  // curl > 0 이면 늘어진 길이를 따라 S자로 부드럽게 말리게 그림(물리는 그대로, 그릴 때만 옆으로 휘게)
-  function drawRope(g, src, w, curl = 0) {
+  // 껍질 띠(도트): 갈색 외곽선 · 앞면 주황(아래쪽 진한 줄 · 위쪽 밝은 줄) · 뒤집힌 면 크림 · 땅에 생기는 그림자
+  // curl > 0 이면 늘어진 길이를 따라 S자로 부드럽게 말리게 그림(물리는 그대로, 그릴 때만 옆으로 휘게). cell = 한 칸 크기
+  function drawRope(g, src, w, curl = 0, cell = CELL) {
     const n = src.length;
     if (n < 2) return;
     const pts = curl ? src.map((p, i) => {
@@ -336,7 +450,7 @@
     for (let i = 0; i < n; i++) {
       const a = pts[Math.max(0, i - 2)], b = pts[Math.min(n - 1, i + 2)];
       let tx = b.x - a.x, ty = b.y - a.y; const d = Math.hypot(tx, ty);
-      if (d < 3) { tx = ptx; ty = pty; } else { tx /= d; ty /= d; if (tx * ptx + ty * pty < -0.2 && i) { tx = ptx; ty = pty; } }
+      if (d < (cell === CELL ? 3 : 1)) { tx = ptx; ty = pty; } else { tx /= d; ty /= d; if (tx * ptx + ty * pty < -0.2 && i) { tx = ptx; ty = pty; } }
       ptx = tx; pty = ty;
       const c = Math.cos(pts[i].ph || 0), taper = Math.min(1, 0.55 + i * 0.15) * (i === n - 1 ? 0.7 : 1);
       const h = (w / 2) * (0.42 + 0.58 * Math.abs(c)) * taper;
@@ -350,159 +464,169 @@
       g.closePath();
     };
     g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
-    outline(3, 6); g.fillStyle = 'rgba(190,140,90,.13)'; g.fill();
-    outline(0, 2); g.fillStyle = '#d96a12'; g.fill();
+    outline(cell, cell * 2.5); g.fillStyle = C.tan; g.fill();
+    outline(0, 0); g.strokeStyle = C.ink; g.lineWidth = cell * 2.4; g.stroke();
+    const m = (p, q, k) => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
     for (let i = 0; i < n - 1; i++) {
       const out = face[i] + face[i + 1] > -0.7;
       g.beginPath(); g.moveTo(L[i][0], L[i][1]); g.lineTo(L[i + 1][0], L[i + 1][1]); g.lineTo(R[i + 1][0], R[i + 1][1]); g.lineTo(R[i][0], R[i][1]); g.closePath();
-      g.fillStyle = out ? '#f5871f' : '#ffe6c2'; g.strokeStyle = g.fillStyle; g.lineWidth = 0.8; g.fill(); g.stroke();
-      const m = (p, q, k) => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
+      g.fillStyle = out ? C.o : C.cream; g.strokeStyle = g.fillStyle; g.lineWidth = cell * 0.5; g.fill(); g.stroke();
       const a1 = m(R[i], L[i], 0.3), a2 = m(R[i + 1], L[i + 1], 0.3);
       g.beginPath(); g.moveTo(R[i][0], R[i][1]); g.lineTo(R[i + 1][0], R[i + 1][1]); g.lineTo(a2[0], a2[1]); g.lineTo(a1[0], a1[1]); g.closePath();
-      g.fillStyle = out ? 'rgba(210,95,10,.32)' : 'rgba(240,200,150,.5)'; g.fill();
-      const b1 = m(L[i], R[i], 0.25), b2 = m(L[i + 1], R[i + 1], 0.25);
-      g.beginPath(); g.moveTo(b1[0], b1[1]); g.lineTo(b2[0], b2[1]); g.strokeStyle = out ? 'rgba(255,190,110,.55)' : 'rgba(255,255,255,.7)'; g.lineWidth = 1.4; g.stroke();
+      g.fillStyle = out ? C.od : C.fll; g.fill();
+      const b1 = m(L[i], R[i], 0.22), b2 = m(L[i + 1], R[i + 1], 0.22);
+      g.beginPath(); g.moveTo(b1[0], b1[1]); g.lineTo(b2[0], b2[1]); g.strokeStyle = out ? C.ol : C.white; g.lineWidth = cell; g.lineCap = 'butt'; g.stroke();
     }
-    g.save(); outline(0, 0); g.clip(); g.globalAlpha = 0.8; g.fillStyle = grain(g, 'peel'); g.fillRect(0, 0, WW, 2000); g.restore();
-    outline(0, 0); g.strokeStyle = 'rgba(210,96,14,.6)'; g.lineWidth = 1; g.stroke();
     g.restore();
   }
 
-  /* ---------- 일러스트(시안 1·4번 화면) ---------- */
-  function sideTangerine(g, x, y, r, leafSway = 0) {
-    groundShadow(g, x, y + r * 0.84, r * 1.0, r * 0.17);
-    paintOrange(g, () => wobble(g, x, y, r * 1.06, r * 0.9, 1.3), x, y, r * 1.06, r * 0.9);
-    stem(g, x - r * 0.02, y - r * 0.78, r * 0.3);
-    leaf(g, x - r * 0.02, y - r * 0.98, r * 0.6, -0.42 + leafSway);
+  /* ---------- 시작 화면 장면(시안): 구름 · 계단 언덕 · 지평선 · 풀 · 웃는 감귤 · 감귤 조각 · 반짝 표시 ---------- */
+  let heroKey = '';
+  function drawHero(t) {
+    const g = heroCtx, W = hero.width, H = hero.height;
+    if (!W || !H) return;
+    const bob = Math.floor(t / 0.55) % 2 ? -1 : 0, blink = t % 3.8 < 0.14, drift = Math.floor(t * 1.5);
+    const key = `${W}|${H}|${bob}|${blink}|${drift}`;
+    if (key === heroKey) return;
+    heroKey = key;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    const cx = Math.floor(W / 2), cy = 36, gy = 46, span = W + 36;
+    pxCloud(g, ((drift + 8) % span) - 28, 2, 24);
+    pxCloud(g, ((drift + Math.round(W * 0.8)) % span) - 28, 12, 20);
+    pxHill(g, 10, gy, 25, 36, C.hillL, '#fff6e8');
+    pxHill(g, W - 12, gy, 22, 34, C.hillL, '#fff6e8');
+    pxHill(g, 26, gy, 15, 24, C.hill, C.hillL);
+    pxHill(g, W - 30, gy, 12, 22, C.hill, C.hillL);
+    g.fillStyle = C.grass; g.fillRect(0, gy, W, 1);
+    g.fillStyle = C.ground; g.fillRect(0, gy + 1, W, 1);
+    stamp(g, TUFT, TUFT_PAL, 5, gy - 2);
+    stamp(g, TUFT, TUFT_PAL, W - 11, gy - 2);
+    cells(g, cx - 32, 50, cx + 36, 60, (x, y) => ((x - cx - 4) / 29) ** 2 + ((y - 56) / 3.4) ** 2 <= 1, () => C.ground, null);
+    for (const [dx, y] of [[-44, 50], [-52, 56], [38, 50], [46, 56]]) stamp(g, TUFT, TUFT_PAL, cx + dx, y);
+    pxSparks(g, cx, cy + bob, 23, 20, [-2.78, -2.4, -2.02], bob ? 4 : 3, C.o);
+    pxTangerine(g, cx, cy + bob, 23, 20, { face: 'smile', blink });
+    pxSegment(g, cx + 26, 54, 10, 0.35);
   }
-  // 껍질을 다 깐 감귤(시안 4번): 볼록한 조각 여러 개 + 조각 사이 골 + 흰 귤락 결 + 위쪽 꼭지
-  function peeledTangerine(g, x, y, r) {
-    groundShadow(g, x, y + r * 0.8, r * 1.02, r * 0.16);
-    const body = () => wobble(g, x, y, r * 1.08, r * 0.84, 2.1);
-    body(); g.fillStyle = '#f7a23c'; g.fill();
-    g.save(); body(); g.clip();
-    const n = 9;
-    for (const k of [0, 8, 1, 7, 2, 6, 3, 5, 4]) {
-      const u = (k - (n - 1) / 2) / ((n - 1) / 2);          // -1 ~ 1
-      const xc = x + Math.sin(u * Math.PI / 2) * r * 0.98, wd = r * 0.27 * Math.cos(u * Math.PI / 2 * 0.9) + r * 0.06;
-      g.beginPath(); g.ellipse(xc, y + r * 0.02, wd, r * 0.84, 0, 0, TAU);
-      const lg = g.createLinearGradient(xc - wd, 0, xc + wd, 0);
-      lg.addColorStop(0, '#f08a2a'); lg.addColorStop(0.45, '#ffc978'); lg.addColorStop(1, '#f2922e');
-      g.fillStyle = lg; g.fill();
-      g.strokeStyle = 'rgba(214,105,20,.55)'; g.lineWidth = Math.max(1.2, r * 0.016); g.stroke();
-      // 조각 위 흰 결
-      g.strokeStyle = 'rgba(255,248,232,.85)'; g.lineWidth = Math.max(1.2, r * 0.018); g.lineCap = 'round';
-      g.beginPath(); g.moveTo(xc - wd * 0.15, y - r * 0.62); g.quadraticCurveTo(xc + wd * 0.25, y, xc - wd * 0.05, y + r * 0.6); g.stroke();
-    }
-    const rnd = seeded(31);
-    g.strokeStyle = 'rgba(255,252,244,.9)'; g.lineWidth = Math.max(1, r * 0.012);
-    for (let i = 0; i < 40; i++) {
-      const px = x + (rnd() - 0.5) * r * 1.9, py = y + (rnd() - 0.5) * r * 1.5, l = r * (0.06 + rnd() * 0.16), d = rnd() * TAU;
-      g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px + Math.cos(d + 0.8) * l * 0.5, py + Math.sin(d + 0.8) * l * 0.5, px + Math.cos(d) * l, py + Math.sin(d) * l); g.stroke();
-    }
-    const sh = g.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.4, x, y, r * 1.12);
-    sh.addColorStop(0, 'rgba(255,200,120,.15)'); sh.addColorStop(1, 'rgba(200,90,10,.35)');
-    g.fillStyle = sh; g.fillRect(x - r * 1.2, y - r, r * 2.4, r * 2);
-    g.fillStyle = grain(g, 'flesh'); g.fillRect(x - r * 1.2, y - r, r * 2.4, r * 2);
-    g.restore();
-    g.beginPath(); g.ellipse(x, y - r * 0.8, r * 0.12, r * 0.05, 0, 0, TAU); g.fillStyle = '#fff2dc'; g.fill();
-    stem(g, x, y - r * 0.78, r * 0.17);
+  // 얼굴 아이콘(준비 말풍선 · 결과 점수 카드): smile(가끔 깜빡) · happy(최고 기록, 통통 뜀) · sad(끊어짐)
+  function drawFace(g, mood, t) {
+    const S = g.canvas.width;
+    if (!S) return;
+    const bob = mood === 'happy' ? (Math.floor(t / 0.18) % 2 ? -1 : 0) : (Math.floor(t / 0.6) % 2 ? -1 : 0);
+    const blink = mood === 'smile' && t % 3.8 < 0.14, key = `${S}|${mood}|${bob}|${blink}`;
+    if (g.__k === key) return;
+    g.__k = key;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
+    const r = S * 0.39;
+    pxTangerine(g, S / 2, S * 0.6 + bob, r, r * 0.88, { face: mood, blink });
   }
   function ribbonArt(g, f, n, w, twist) {
     const pts = [];
     for (let i = 0; i < n; i++) { const t = i / (n - 1), [x, y] = f(t); pts.push({ x, y, ph: 0.3 + t * twist }); }
-    drawRope(g, pts, w);
+    drawRope(g, pts, w, 0, 1);
     return pts;
   }
-  function drawHero(t) {
-    const g = heroCtx, S = hero.width, H = hero.height;
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, H);
-    sideTangerine(g, S * 0.5, H * 0.6, S * 0.36, Math.sin(t * 1.2) * 0.04);
-    heroFace(g, S * 0.5, H * 0.6, S * 0.36, t);
-    accents(g, S * 0.5, H * 0.6, S * 0.42, -2.3, '#f5871f', S * 0.011, S * 0.05);
-  }
-  // 시작 화면 큰 감귤의 표정(첨부 시안처럼): 테두리 없이 가운데로 모인 점 눈 · 끝이 살짝 말린 큰 입 · 분홍 볼터치
-  function cuteFace(g, fx, fy, r, mood, t) {
-    const L = '#3b2416', blink = mood === 'smile' && (t % 3.8) < 0.12;
-    g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
-    // 볼터치(입 끝에 살짝 겹치게)
-    g.fillStyle = mood === 'sad' ? 'rgba(247,160,170,.55)' : 'rgba(247,160,170,.92)';
-    for (const dx of [-0.43, 0.43]) { g.beginPath(); g.ellipse(fx + dx * r, fy + r * 0.2, r * 0.15, r * 0.135, 0, 0, TAU); g.fill(); }
-    g.fillStyle = L; g.strokeStyle = L; g.lineWidth = r * 0.045;
-    // 눈: 가운데로 모인 작은 세로 점
-    for (const dx of [-0.075, 0.075]) {
-      const ex = fx + dx * r, ey = fy - r * 0.02;
-      g.beginPath();
-      if (mood === 'happy') { g.arc(ex, ey + r * 0.03, r * 0.045, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
-      else if (blink) { g.moveTo(ex - r * 0.03, ey); g.lineTo(ex + r * 0.03, ey); g.stroke(); }
-      else { g.ellipse(ex, ey, r * 0.026, r * 0.048, 0, 0, TAU); g.fill(); }
-    }
-    // 입: 볼터치 사이를 잇는 넓은 웃음 + 양 끝 짧은 말림
-    const lx = fx - r * 0.34, rx = fx + r * 0.34, my = fy + r * 0.14;
-    g.beginPath();
-    if (mood === 'sad') { g.moveTo(fx - r * 0.16, my + r * 0.1); g.quadraticCurveTo(fx, my - r * 0.02, fx + r * 0.16, my + r * 0.1); g.stroke(); }
-    else {
-      g.moveTo(lx, my); g.quadraticCurveTo(fx, my + r * (mood === 'happy' ? 0.36 : 0.3), rx, my); g.stroke();
-      g.beginPath(); g.moveTo(lx - r * 0.035, my - r * 0.06); g.quadraticCurveTo(lx - r * 0.01, my + r * 0.01, lx + r * 0.02, my + r * 0.06); g.stroke();
-      g.beginPath(); g.moveTo(rx + r * 0.035, my - r * 0.06); g.quadraticCurveTo(rx + r * 0.01, my + r * 0.01, rx - r * 0.02, my + r * 0.06); g.stroke();
-    }
-    g.restore();
-  }
-  function heroFace(g, x, y, r, t) { cuteFace(g, x + r * 0.02, y + r * 0.08, r, 'smile', t); }
+  // 결과 그림(96×72칸): 완성 = 다 깐 감귤 + 길게 이어진 껍질 + 반짝이 / 끊어짐 = 덜 깐 감귤 + 짧게 끊긴 껍질
+  let lastArt = null;
   function drawResultArt(ok, pct) {
-    const g = rArt.getContext('2d'), S = rArt.width, H = rArt.height, k = S / 320;
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, H);
+    lastArt = [ok, pct];
+    const g = rArt.getContext('2d', { willReadFrequently: true }), W = rArt.width, H = rArt.height;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    cells(g, 4, H - 14, W - 4, H - 2, (x, y) => ((x - W / 2) / (W * 0.44)) ** 2 + ((y - (H - 8)) / 4) ** 2 <= 1, () => C.ground, null);
     if (ok) {
-      // 다 깐 감귤 + 아래로 감기듯 놓인 긴 껍질 한 줄(시안 4번)
-      // 껍질은 왼쪽에서 한 번 말려 올라왔다가 감귤 앞을 지나 오른쪽으로 길게 늘어짐
-      peeledTangerine(g, S * 0.54, H * 0.42, H * 0.34);
-      ribbonArt(g, (t) => [S * (0.05 + t * 0.9), H * (0.76 + 0.055 * Math.sin(t * Math.PI * 2.6 + 0.4) + t * 0.05)], 70, 27 * k, 11);
-      accents(g, S * 0.54, H * 0.42, H * 0.42, -0.62, '#6aa84f', 3 * k, H * 0.05);
+      ribbonArt(g, (t) => [W * (0.05 + t * 0.9), H * (0.8 + 0.05 * Math.sin(t * Math.PI * 2.6 + 0.4) + t * 0.03)], 50, 8, 11);
+      pxPeeled(g, W * 0.52, H * 0.42, 21, 18);
+      for (const [x, y] of [[0.16, 0.18], [0.84, 0.12], [0.9, 0.48], [0.12, 0.5]]) stamp(g, SPARK, { a: C.o, b: C.yel }, Math.round(W * x) - 2, Math.round(H * y) - 2);
     } else {
-      // 덜 깐 감귤 + 짧게 끊어진 껍질
-      sideTangerine(g, S * 0.42, H * 0.52, H * 0.32);
-      g.save(); wobble(g, S * 0.42, H * 0.52, H * 0.32 * 1.06, H * 0.32 * 0.9, 1.3); g.clip();
-      const cut = 0.25 + pct * 0.5;
-      g.beginPath(); g.ellipse(S * 0.42, H * 0.52 - H * 0.32 * (1.0 - cut), H * 0.34, H * 0.32 * cut * 0.9, 0, 0, TAU); g.fillStyle = '#ffd7a0'; g.fill();
-      g.strokeStyle = '#fff5e4'; g.lineWidth = 3 * k; g.stroke();
-      g.restore();
-      const pts = ribbonArt(g, (t) => [S * (0.64 + t * 0.28), H * (0.64 + Math.sin(t * 5) * 0.07 + t * 0.18)], 12 + Math.round(pct * 14), 26 * k, 5);
+      pxTangerine(g, W * 0.4, H * 0.5, 20, 17.5, { cut: -1 + (0.25 + pct * 0.5) * 1.1, leaf: false });
+      const pts = ribbonArt(g, (t) => [W * (0.66 + t * 0.26), H * (0.6 + Math.sin(t * 5) * 0.07 + t * 0.18)], 8 + Math.round(pct * 10), 8, 5);
       const e = pts[pts.length - 1];
-      g.save(); g.translate(e.x, e.y); g.scale(k, k); g.fillStyle = '#ffe6c2'; g.strokeStyle = 'rgba(210,96,14,.6)'; g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(-6, -11); g.lineTo(2, -5); g.lineTo(-3, 0); g.lineTo(4, 5); g.lineTo(-4, 11); g.lineTo(-9, 0); g.closePath(); g.fill(); g.stroke();
-      g.restore();
-      accents(g, e.x, e.y, 16 * k, 0, '#cf4f2a', 2.6 * k);
+      pxSparks(g, e.x, e.y, 3, 3, [-0.6, 0, 0.6], 3, C.red);
     }
-  }
-  // 작은 웃는 감귤(v1.5의 점 얼굴을 v1.7 질감으로): 굵은 외곽선 없이 종이 질감 + 점 눈 + 선 하나 입
-  // mood: smile(가끔 깜빡) · happy(눈웃음, 최고 기록) · sad(끊어졌을 때)
-  function drawFace(g, mood, t) {
-    const S = g.canvas.width, k = S / 100;
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
-    g.setTransform(k, 0, 0, k, 0, 0);
-    const bob = mood === 'happy' ? Math.abs(Math.sin(t * 5)) * -3 : 0;
-    g.translate(0, bob);
-    paintOrange(g, () => wobble(g, 50, 60, 37, 32, 2.4), 50, 60, 37, 32);
-    stem(g, 50, 30, 8);
-    leaf(g, 50, 27, 24, -0.5);
-    cuteFace(g, 50, 61, 36, mood, t);
+    quantize(g);
   }
 
-  // 모서리 잎(시안 1·4번)
-  function drawCorners() {
-    const tl = $('c-tl'), br = $('c-br'), br2 = $('c-br2');
-    let g = tl.getContext('2d'), S = tl.width;
-    g.clearRect(0, 0, S, S);
-    g.save(); g.strokeStyle = 'rgba(120,150,90,.35)'; g.lineWidth = S * 0.008; g.beginPath(); g.moveTo(-5, S * 0.45); g.quadraticCurveTo(S * 0.3, S * 0.3, S * 0.55, -5); g.stroke(); g.restore();
-    leaf(g, -S * 0.04, S * 0.52, S * 0.5, -1.05);
-    leaf(g, S * 0.3, S * 0.1, S * 0.52, -0.55);
-    g = br.getContext('2d'); S = br.width; const H = br.height;
-    g.clearRect(0, 0, S, H);
-    peeledTangerine(g, S * 0.55, H * 0.98, H * 0.36);
-    leaf(g, S * 0.8, H * 0.98, S * 0.36, -1.15);
-    g = br2.getContext('2d'); g.clearRect(0, 0, br2.width, br2.height);
-    leaf(g, br2.width * 0.5, br2.height * 1.02, br2.width * 0.38, -1.35);
-    leaf(g, br2.width * 0.58, br2.height * 0.95, br2.width * 0.44, -0.65);
+  /* ---------- 도트 아이콘 · 버튼 테두리 · 단계 감귤(시작할 때 한 번 만듦) ---------- */
+  const ICONS = {
+    snd: ['.....kk.....', '....kkk...k.', '...kkkk.k..k', 'kkkkkkk..k.k', 'kkkkkkk..k.k', 'kkkkkkk..k.k', 'kkkkkkk..k.k', '...kkkk.k..k', '....kkk...k.', '.....kk.....'],
+    sndOff: ['.....kk.....', '....kkk.....', '...kkkk.....', 'kkkkkkk.k..k', 'kkkkkkk..kk.', 'kkkkkkk..kk.', 'kkkkkkk.k..k', '...kkkk.....', '....kkk.....', '.....kk.....'],
+    back: ['...k.......', '..kk.......', '.kkkkkkkkkk', 'kkkkkkkkkkk', '.kkkkkkkkkk', '..kk.......', '...k.......'],
+    close: ['kk.....kk', 'kkk...kkk', '.kkk.kkk.', '..kkkkk..', '...kkk...', '..kkkkk..', '.kkk.kkk.', 'kkk...kkk', 'kk.....kk'],
+    crown: ['k....k....k', 'kk..kok..kk', 'kokkoookkok', 'koooooooook', 'koyooyooyok', 'koooooooook', 'kkkkkkkkkkk'],
+    play: ['kk.....', 'kck....', 'kcck...', 'kccck..', 'kcccck.', 'kccccck', 'kcccck.', 'kccck..', 'kcck...', 'kck....', 'kk.....'],
+    clock: ['..kkkkk..', '.kccccck.', 'kccckccck', 'kccckccck', 'kccckkkck', 'kccccccck', 'kccccccck', '.kccccck.', '..kkkkk..'],
+    hand: ['...kk......', '..kwwk.....', '..kwwk.....', '..kwwkkk...', '..kwwkwwkk.', 'kkkwwkwwkwk', 'kwkwwwwwwwk', 'kwwwwwwwwwk', '.kwwwwwwwwk', '.kwwwwwwwk.', '..kwwwwwwk.', '...kwwwwk..', '...kkkkkk..'],
+  };
+  const ICON_PAL = { k: C.ink, o: C.o, y: C.yel, c: C.cream, w: '#fffaf0' };
+  function iconSvg(map) {
+    const h = map.length, w = map[0].length;
+    let r = '';
+    map.forEach((row, y) => {
+      for (let x = 0; x < w;) {
+        const ch = row[x], c = ICON_PAL[ch];
+        let x2 = x + 1; while (x2 < w && row[x2] === ch) x2++;
+        if (c) r += `<rect x="${x}" y="${y}" width="${x2 - x}" height="1" fill="${c}"/>`;
+        x = x2;
+      }
+    });
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${r}</svg>`;
+  }
+  // 버튼·상자 테두리(9×10칸): 3칸 계단 모서리 · 위 밝은 줄 · 아래 어두운 두 줄 · 맨 아래 그림자 줄. P = 한 칸의 px
+  function boxImage(c, P) {
+    const W = 9, H0 = 9, H = 10, inset = (y) => (y === 0 || y === H0 - 1 ? 2 : y === 1 || y === H0 - 2 ? 1 : 0);
+    const inside = (x, y) => y >= 0 && y < H0 && x >= inset(y) && x < W - inset(y);
+    let r = '';
+    const put = (x, y, col) => { r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`; };
+    for (let y = 0; y < H0; y++) for (let x = 0; x < W; x++) {
+      if (!inside(x, y)) continue;
+      const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      put(x, y, edge ? c.k : y === 1 ? c.h : y >= H0 - 3 ? c.l : c.f);
+    }
+    for (let x = 2; x < W - 2; x++) put(x, H0, c.s);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * P}" height="${H * P}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">${r}</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }
+  function initPixelUI() {
+    document.querySelectorAll('.ico[data-ico]').forEach((el) => { const m = ICONS[el.dataset.ico]; if (m) el.innerHTML = iconSvg(m); });
+    const cream = { k: C.ink, f: '#fffaf0', h: C.white, l: '#f3e2c4', s: C.tan };
+    const orange = { k: C.ink, f: C.o, h: C.ol, l: C.od, s: '#e0b47c' };
+    const yellow = { k: C.ink, f: '#ffe7bd', h: '#fff3da', l: '#ffd596', s: C.tan };
+    const panel = { k: '#8f5f38', f: '#fff8ea', h: C.white, l: '#f6e6c8', s: C.tan };
+    const red = { k: C.ink, f: C.red, h: '#ef6a4c', l: C.redD, s: C.tan };
+    const st = document.documentElement.style;
+    st.setProperty('--bx-c4', boxImage(cream, 4)); st.setProperty('--bx-o4', boxImage(orange, 4));
+    st.setProperty('--bx-c3', boxImage(cream, 3)); st.setProperty('--bx-o3', boxImage(orange, 3));
+    st.setProperty('--bx-y3', boxImage(yellow, 3)); st.setProperty('--bx-p3', boxImage(panel, 3));
+    st.setProperty('--bx-r2', boxImage(red, 2));
+    // 단계 표시용 작은 감귤 세 가지(지금 단계 · 깬 단계 · 남은 단계)
+    const dot = (kind) => {
+      const c = document.createElement('canvas'); c.width = c.height = 15;
+      const g = c.getContext('2d');
+      pxTangerine(g, 7.5, 8.6, 6, 5.4, { leaf: true });
+      if (kind === 'off') {
+        const im = g.getImageData(0, 0, 15, 15), d = im.data;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3]) { d[i] = d[i] * 0.3 + 253 * 0.7; d[i + 1] = d[i + 1] * 0.3 + 236 * 0.7; d[i + 2] = d[i + 2] * 0.3 + 214 * 0.7; }
+        g.putImageData(im, 0, 0);
+      }
+      if (kind === 'cur') { g.fillStyle = C.ink; g.fillRect(3, 14, 9, 1); }
+      return `url(${c.toDataURL()})`;
+    };
+    st.setProperty('--dot-on', dot('on')); st.setProperty('--dot-off', dot('off')); st.setProperty('--dot-cur', dot('cur'));
+  }
+  // 그림 캔버스 크기: 칸 수 × 칸 크기(p)로 CSS 크기를 맞춰 도트가 고르게 보이게
+  function fitPix(c, w, h, p) {
+    const cw = Math.max(1, Math.floor(w / p)), ch = Math.max(1, Math.floor(h / p));
+    if (c.width !== cw) c.width = cw;
+    if (c.height !== ch) c.height = ch;
+    c.style.width = `${cw * p}px`; c.style.height = `${ch * p}px`;
+  }
+  function sizeArt() {
+    const r = app.getBoundingClientRect(), vh = window.innerHeight || r.height;
+    const hp = clamp(Math.floor(Math.min((r.width - 20) / 118, vh / 250)), 2, 4);
+    fitPix(hero, Math.min(r.width - 20, 460), 62 * hp, hp); heroKey = '';
+    const ap = vh <= 720 ? 2 : 3;
+    const was = rArt.width;
+    fitPix(rArt, 96 * ap, 72 * ap, ap);
+    if (lastArt && rArt.width === was && state === 'over') drawResultArt(...lastArt);
   }
 
   /* ---------- 게임 상태 ---------- */
@@ -623,7 +747,7 @@
     if (ripAcc > 14) { ripAcc = 0; sfx.rip(); }
     if (bitAcc > 22) {
       bitAcc = 0;
-      for (let i = 0; i < 2; i++) { const a = rand(0, TAU), v = rand(30, 80); bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, t: 0, life: rand(0.35, 0.7), r: rand(1.5, 3), c: '#ffc04a' }); }
+      for (let i = 0; i < 2; i++) { const a = rand(0, TAU), v = rand(30, 80); bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, t: 0, life: rand(0.35, 0.7), r: rand(1.5, 3), c: C.oh }); }
     }
     const p = progress();
     const cheers = [[0.5, '절반!'], [0.8, '거의 다!']];
@@ -641,7 +765,7 @@
       sfx.done(); showPop('완성!', 'big'); hintEl.classList.remove('show');
       for (let i = 0; i < 40; i++) {
         const a = rand(0, TAU), v = rand(90, 240), [mx, my] = W([CX + Math.cos(a) * RT * 0.9, CY + Math.sin(a) * RT * 0.9]);
-        bits.push({ x: mx, y: my, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, t: 0, life: rand(0.6, 1.1), r: rand(2, 4.5), c: i % 5 ? (i % 2 ? '#f5871f' : '#ffc04a') : '#6aa84f', dash: i % 3 === 0 });
+        bits.push({ x: mx, y: my, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, t: 0, life: rand(0.6, 1.1), r: rand(2, 4.5), c: i % 5 ? (i % 2 ? C.o : C.yel) : C.leaf });
       }
     } else {
       attached = false; shake = 0.3;
@@ -693,7 +817,7 @@
 
   function stepRope(dt) {
     if (rope.length < 2 && attached) return;
-    const G = 1100 * dt * dt, floor = WH - 10;
+    const G = 1100 * dt * dt, floor = WH - 42 / s;   // v3.0: 아래 체크무늬 띠 위에 껍질이 놓이게
     if (attached) { const [x, y] = W(pt(th)); rope[0].x = rope[0].px = x; rope[0].y = rope[0].py = y; }
     for (let i = attached ? 1 : 0; i < rope.length; i++) {
       const p = rope[i], vx = (p.x - p.px) * 0.985, vy = (p.y - p.py) * 0.985;
@@ -713,10 +837,10 @@
   // 흰 점선 가이드(시안 2번): 굵은 흰 점선, 다음 한 바퀴는 진하게, 얇은 곳은 노란 점선
   function drawGuide() {
     if (state !== 'ready' && state !== 'peel') return;
-    ctx.save(); ctx.lineCap = 'round';
+    ctx.save(); ctx.lineCap = 'butt';   // v3.0: 네모난 점(도트 점선)
     for (const [a, b] of zones) {
       if (b <= th) continue;
-      ctx.lineWidth = SP * 0.6; ctx.strokeStyle = 'rgba(255,236,190,.26)';
+      ctx.lineWidth = SP * 0.6; ctx.strokeStyle = 'rgba(255,236,190,.4)';
       ctx.beginPath(); path(ctx, Math.max(a, th), b); ctx.stroke();
     }
     const segs = [];
@@ -729,8 +853,8 @@
     }
     for (const [a, b, thin] of segs) {
       const near = Math.min(b, th + TAU);
-      ctx.setLineDash([10 / Z, 9 / Z]); ctx.lineWidth = (thin ? 4.2 : 3.6) / Z;
-      ctx.strokeStyle = thin ? '#ffe27a' : (finger && finger.warn ? '#ffe2b0' : '#fffaf0');
+      ctx.setLineDash([CELL * 3 / Z, CELL * 2.4 / Z]); ctx.lineWidth = Math.max((thin ? 4.2 : 3.6) / Z, CELL * 1.3 / Z);
+      ctx.strokeStyle = thin ? C.yel : (finger && finger.warn ? C.fll : C.white);
       if (a < near) { ctx.globalAlpha = 0.95; ctx.beginPath(); path(ctx, a, near); ctx.stroke(); }
       if (b > near) { ctx.globalAlpha = state === 'ready' ? 0.95 : 0.45; ctx.beginPath(); path(ctx, Math.max(a, near), b); ctx.stroke(); }
     }
@@ -746,25 +870,26 @@
   function drawHandle(t) {
     if (state !== 'ready' && state !== 'peel') return;
     const [x, y] = W(pt(th));
-    const ring = state === 'ready' ? (flash > 0 ? '#cf4f2a' : '#d9c7b2') : (tension > 1 ? '#cf4f2a' : tension > 0.75 || (finger && finger.warn) ? '#f2b33d' : '#d9c7b2');
+    // v3.0: 도트 손잡이 — 흰 원 + 갈색 테두리(힘이 세면 주황 → 빨강), 준비 때는 흰 고리가 2단으로 깜빡이며 커졌다 작아짐
+    const ring = state === 'ready' ? (flash > 0 ? C.red : C.ink) : (tension > 1 ? C.red : tension > 0.75 || (finger && finger.warn) ? C.od : C.ink);
     if (state === 'ready') {
-      const r = 20 + Math.sin(t * 5) * 4;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.strokeStyle = 'rgba(255,250,240,.75)'; ctx.lineWidth = 3; ctx.stroke();
+      const r = Math.floor(t * 3) % 2 ? 22 : 17;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.strokeStyle = C.white; ctx.lineWidth = CELL * 1.3; ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(x, y + 1.5, 11, 0, TAU); ctx.fillStyle = 'rgba(120,60,10,.18)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.fillStyle = '#fffdf8'; ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.fillStyle = C.white; ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = CELL * 1.7; ctx.stroke();
     if (state === 'peel' && tension > 0.25) {
       const [x2, y2] = W(pt(Math.min(THMAX, th + 0.08))), a = Math.atan2(y2 - y, x2 - x) - Math.PI / 2;
-      accents(ctx, x, y, 17, a, 'rgba(255,250,240,.95)', 2.2, 7);
+      accents(ctx, x, y, 17, a, C.white, CELL * 1.5, 8);
     }
   }
   function draw(t) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
     if (state === 'start' || state === 'over' || !layers) return;
+    ctx.imageSmoothingEnabled = false;
     ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, 0);
-    if (shake) ctx.translate(rand(-3, 3), rand(-2, 2));
-    groundShadow(ctx, CX, CY + VIEW_R * FY * 0.9, VIEW_R * 1.0, VIEW_R * 0.17);
+    if (shake) ctx.translate(Math.round(rand(-1, 1)) * CELL, Math.round(rand(-1, 1)) * CELL);   // 칸 단위로 흔들림
+    groundShadow(ctx, CX, CY + VIEW_R * FY * 0.94, VIEW_R * 1.08, VIEW_R * 0.12);
     ctx.save();
     ctx.translate(CX, CY); ctx.scale(Z, FY * Z); ctx.translate(-CX, -CY);
     const bx = layers.box;
@@ -783,15 +908,16 @@
     drawGuide();
     ctx.restore();
     drawTopStem();
-    if (state === 'ready') accents(ctx, CX, CY, VIEW_R * 1.08, -0.68, '#f5871f', 3, 15);
+    if (state === 'ready') accents(ctx, CX, CY, VIEW_R * 1.08, -0.68, C.o, CELL * 2, 16);
     drawRope(ctx, rope, SP * Z * PEEL_W * 1.12, 1);
     drawHandle(t);
+    // 튀는 조각: 네모 도트(반쯤 사라지면 없어짐)
     for (const m of bits) {
-      ctx.globalAlpha = 1 - m.t / m.life;
-      if (m.dash) { ctx.save(); ctx.strokeStyle = m.c; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 0.03, m.y - m.vy * 0.03); ctx.stroke(); ctx.restore(); }
-      else { ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fillStyle = m.c; ctx.fill(); }
+      if (m.t / m.life > 0.6) continue;
+      const sz = Math.max(CELL, m.r * 1.5);
+      ctx.fillStyle = m.c; ctx.fillRect(m.x - sz / 2, m.y - sz / 2, sz, sz);
     }
-    ctx.globalAlpha = 1;
+    quantize(ctx);
   }
 
   /* ---------- 처음 화면으로 ---------- */
@@ -1044,10 +1170,10 @@
   $('retry-link').addEventListener('click', () => act('retry'));
 
   const hero = $('hero'), heroCtx = hero.getContext('2d'), rArt = $('r-art'), faceCtx = $('face').getContext('2d'), rFaceCtx = $('r-face').getContext('2d');
-  const hiDpi = (c) => { const k = Math.min(2, window.devicePixelRatio || 1); c.width = Math.round(c.width * k); c.height = Math.round(c.height * k); };
-  for (const id of ['hero', 'r-art', 'c-tl', 'c-br', 'c-br2', 'face', 'r-face']) hiDpi($(id));
+  // v3.0: 얼굴 아이콘은 칸 수 고정(말풍선 22칸×2px, 점수 카드 20칸×3px). 시작 그림·결과 그림은 layout()의 sizeArt()가 맞춤
+  fitPix($('face'), 44, 44, 2); fitPix($('r-face'), 60, 60, 3);
+  initPixelUI();
   window.addEventListener('resize', layout);
   setStage(0);
-  drawCorners();
   nextFrame(frame);
 })();
